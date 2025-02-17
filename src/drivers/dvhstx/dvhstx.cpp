@@ -40,7 +40,11 @@ __attribute__((section(".uninitialized_data"))) static uint8_t frame_buffer_b[FR
 extern "C" {
 void dvhstx_debug(const char *fmt, ...);
 }
+#elif defined(ARDUINO)
+#include <Arduino.h>
+#define dvhstx_debug Serial.printf
 #else
+#include <cstdio>
 #define dvhstx_debug printf
 #endif
 
@@ -519,78 +523,9 @@ void DVHSTX::display_setup_clock() {
                     freq, freq);
 }
 
-void DVHSTX::write_pixel(const Point &p, uint16_t colour)
-{
-    *point_to_ptr16(p) = colour;
-}
-
-void DVHSTX::write_pixel_span(const Point &p, uint l, uint16_t colour)
-{
-    uint16_t* ptr = point_to_ptr16(p);
-    for (uint i = 0; i < l; ++i) ptr[i] = colour;
-}
-
-void DVHSTX::write_pixel_span(const Point &p, uint l, uint16_t *data)
-{
-    uint16_t* ptr = point_to_ptr16(p);
-    for (uint i = 0; i < l; ++i) ptr[i] = data[i];
-}
-
-void DVHSTX::read_pixel_span(const Point &p, uint l, uint16_t *data)
-{
-    const uint16_t* ptr = point_to_ptr16(p);
-    for (uint i = 0; i < l; ++i) data[i] = ptr[i];
-}
-
-void DVHSTX::set_palette(RGB888 new_palette[PALETTE_SIZE])
-{
-    memcpy(palette, new_palette, PALETTE_SIZE * sizeof(RGB888));
-}
-
-void DVHSTX::set_palette_colour(uint8_t entry, RGB888 colour)
-{
-    palette[entry] = colour;
-}
-
 RGB888* DVHSTX::get_palette()
 {
     return palette;
-}
-
-void DVHSTX::write_palette_pixel(const Point &p, uint8_t colour)
-{
-    *point_to_ptr_palette(p) = colour;
-}
-
-void DVHSTX::write_palette_pixel_span(const Point &p, uint l, uint8_t colour)
-{
-    uint8_t* ptr = point_to_ptr_palette(p);
-    memset(ptr, colour, l);
-}
-
-void DVHSTX::write_palette_pixel_span(const Point &p, uint l, uint8_t* data)
-{
-    uint8_t* ptr = point_to_ptr_palette(p);
-    memcpy(ptr, data, l);
-}
-
-void DVHSTX::read_palette_pixel_span(const Point &p, uint l, uint8_t *data)
-{
-    const uint8_t* ptr = point_to_ptr_palette(p);
-    memcpy(data, ptr, l);
-}
-
-void DVHSTX::write_text(const Point &p, const char* text, TextColour colour, bool immediate)
-{
-    char* ptr = (char*)point_to_ptr_text(p, immediate);
-    int len = std::min((int)(frame_width - p.x), (int)strlen(text));
-    memcpy(ptr, text, len);
-    if (mode == MODE_TEXT_RGB111) memset(ptr + frame_width * frame_height, (uint8_t)colour, len);
-}
-
-void DVHSTX::clear()
-{
-    memset(frame_buffer_back, 0, frame_width * frame_height * frame_bytes_per_pixel);
 }
 
 DVHSTX::DVHSTX()
@@ -599,7 +534,7 @@ DVHSTX::DVHSTX()
     dma_claim_mask((1 << NUM_CHANS) - 1);
 }
 
-bool DVHSTX::init(uint16_t width, uint16_t height, Mode mode_)
+bool DVHSTX::init(uint16_t width, uint16_t height, Mode mode_, bool double_buffered, const DVHSTXPinout &pinout)
 {
     if (inited) reset();
 
@@ -690,7 +625,7 @@ bool DVHSTX::init(uint16_t width, uint16_t height, Mode mode_)
     dvhstx_debug("Setup clock\n");
     display_setup_clock();
 
-#ifndef MICROPY_BUILD_TYPE
+#if !defined(MICROPY_BUILD_TYPE) && !defined(ARDUINO)
     stdio_init_all();
 #endif
     dvhstx_debug("Clock setup done\n");
@@ -754,10 +689,10 @@ bool DVHSTX::init(uint16_t width, uint16_t height, Mode mode_)
     }
 
     frame_buffer_display = frame_buffer_a;
-    frame_buffer_back = frame_buffer_b;
+    frame_buffer_back = double_buffered ? frame_buffer_b : frame_buffer_a;
 #else
     frame_buffer_display = (uint8_t*)malloc(frame_width * frame_height * frame_bytes_per_pixel);
-    frame_buffer_back = (uint8_t*)malloc(frame_width * frame_height * frame_bytes_per_pixel);
+    frame_buffer_back = double_buffered ? (uint8_t*)malloc(frame_width * frame_height * frame_bytes_per_pixel) : frame_buffer_display;
 #endif
     memset(frame_buffer_display, 0, frame_width * frame_height * frame_bytes_per_pixel);
     memset(frame_buffer_back, 0, frame_width * frame_height * frame_bytes_per_pixel);
@@ -889,23 +824,22 @@ bool DVHSTX::init(uint16_t width, uint16_t height, Mode mode_)
         HSTX_CTRL_CSR_EN_BITS; 
 
     // HSTX outputs 0 through 7 appear on GPIO 12 through 19.
-
+    constexpr int HSTX_FIRST_PIN = 12;
     // Assign clock pair to two neighbouring pins:
-    hstx_ctrl_hw->bit[1] = HSTX_CTRL_BIT0_CLK_BITS;
-    hstx_ctrl_hw->bit[0] = HSTX_CTRL_BIT0_CLK_BITS | HSTX_CTRL_BIT0_INV_BITS;
+    hstx_ctrl_hw->bit[(pinout.clk_p    ) - HSTX_FIRST_PIN] = HSTX_CTRL_BIT0_CLK_BITS;
+    hstx_ctrl_hw->bit[(pinout.clk_p ^ 1) - HSTX_FIRST_PIN] = HSTX_CTRL_BIT0_CLK_BITS | HSTX_CTRL_BIT0_INV_BITS;
     for (uint lane = 0; lane < 3; ++lane) {
         // For each TMDS lane, assign it to the correct GPIO pair based on the
         // desired pinout:
-        static const int lane_to_output_bit[3] = {2, 4, 6};
-        int bit = lane_to_output_bit[lane];
+        int bit = pinout.rgb_p[lane];
         // Output even bits during first half of each HSTX cycle, and odd bits
         // during second half. The shifter advances by two bits each cycle.
         uint32_t lane_data_sel_bits =
             (lane * 10    ) << HSTX_CTRL_BIT0_SEL_P_LSB |
             (lane * 10 + 1) << HSTX_CTRL_BIT0_SEL_N_LSB;
         // The two halves of each pair get identical data, but one pin is inverted.
-        hstx_ctrl_hw->bit[bit    ] = lane_data_sel_bits | HSTX_CTRL_BIT0_INV_BITS;
-        hstx_ctrl_hw->bit[bit + 1] = lane_data_sel_bits;
+        hstx_ctrl_hw->bit[(bit    ) - HSTX_FIRST_PIN] = lane_data_sel_bits;
+        hstx_ctrl_hw->bit[(bit ^ 1) - HSTX_FIRST_PIN] = lane_data_sel_bits | HSTX_CTRL_BIT0_INV_BITS;
     }
 
     for (int i = 12; i <= 19; ++i) {
@@ -997,19 +931,27 @@ void DVHSTX::reset() {
         font_cache = nullptr;
     }
     free(line_buffers);
+    line_buffers = nullptr;
 
 #ifndef MICROPY_BUILD_TYPE
     free(frame_buffer_display);
-    free(frame_buffer_back);
+    if (frame_buffer_display != frame_buffer_back) {
+        free(frame_buffer_back);
+}
+    frame_buffer_display = frame_buffer_back = nullptr;
 #endif
 }
 
 void DVHSTX::flip_blocking() {
+    if (get_single_buffered())
+        return;
     wait_for_vsync();
     flip_now();
 }
 
 void DVHSTX::flip_now() {
+    if (get_single_buffered())
+        return;
     std::swap(frame_buffer_display, frame_buffer_back);
 }
 
@@ -1018,9 +960,13 @@ void DVHSTX::wait_for_vsync() {
 }
 
 void DVHSTX::flip_async() {
+    if (get_single_buffered())
+        return;
     flip_next = true;
 }
 
 void DVHSTX::wait_for_flip() {
+    if (get_single_buffered())
+        return;
     while (flip_next) __wfe();
 }

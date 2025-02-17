@@ -4,13 +4,16 @@
 
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
-#include "common/pimoroni_common.hpp"
-#include "common/pimoroni_i2c.hpp"
-#include "libraries/pico_graphics/pico_graphics.hpp"
 
 // DVI HSTX driver for use with Pimoroni PicoGraphics
 
 namespace pimoroni {
+
+  struct DVHSTXPinout {
+    uint8_t clk_p, rgb_p[3];
+  };
+
+  typedef uint32_t RGB888;
 
   // Digital Video using HSTX
   // Valid screen modes are:
@@ -28,6 +31,7 @@ namespace pimoroni {
   class DVHSTX {
   public:
     static constexpr int PALETTE_SIZE = 256;
+
 
     enum Mode {
       MODE_PALETTE = 2,
@@ -70,29 +74,20 @@ namespace pimoroni {
     // Methods
     //--------------------------------------------------
     public:
-      // 16bpp interface
-      void write_pixel(const Point &p, uint16_t colour);
-      void write_pixel_span(const Point &p, uint l, uint16_t colour);
-      void write_pixel_span(const Point &p, uint l, uint16_t *data);
-      void read_pixel_span(const Point &p, uint l, uint16_t *data);
+      bool get_single_buffered() { return frame_buffer_display && frame_buffer_display == frame_buffer_back; }
+      bool get_double_buffered() { return frame_buffer_display && frame_buffer_display != frame_buffer_back; }
 
-      // 256 colour palette mode.
-      void set_palette(RGB888 new_palette[PALETTE_SIZE]);
-      void set_palette_colour(uint8_t entry, RGB888 colour);
+      template<class T>
+      T *get_back_buffer() { return (T*)(frame_buffer_back); }
+      template<class T>
+      T *get_front_buffer() { return (T*)(frame_buffer_display); }
+
+      uint16_t get_width() const { return frame_width; }
+      uint16_t get_height() const { return frame_height; }
+
       RGB888* get_palette();
 
-      void write_palette_pixel(const Point &p, uint8_t colour);
-      void write_palette_pixel_span(const Point &p, uint l, uint8_t colour);
-      void write_palette_pixel_span(const Point &p, uint l, uint8_t* data);
-      void read_palette_pixel_span(const Point &p, uint l, uint8_t *data);
-
-      // Text mode (91 x 30)
-      // Immediate writes to the active buffer instead of the back buffer
-      void write_text(const Point &p, const char* text, TextColour colour = TEXT_WHITE, bool immediate = false);
-
-      void clear();
-
-      bool init(uint16_t width, uint16_t height, Mode mode = MODE_RGB565);
+      bool init(uint16_t width, uint16_t height, Mode mode, bool double_buffered, const DVHSTXPinout &pinout);
       void reset();
 
       // Wait for vsync and then flip the buffers
@@ -114,24 +109,10 @@ namespace pimoroni {
 
     private:
       RGB888 palette[PALETTE_SIZE];
-
+      bool double_buffered;
       uint8_t* frame_buffer_display;
       uint8_t* frame_buffer_back;
       uint32_t* font_cache = nullptr;
-
-      uint16_t* point_to_ptr16(const Point &p) const {
-        return ((uint16_t*)frame_buffer_back) + (p.y * (uint32_t)frame_width) + p.x;
-      }
-
-      uint8_t* point_to_ptr_palette(const Point &p) const {
-        return frame_buffer_back + (p.y * (uint32_t)frame_width) + p.x;
-      }
-
-      uint8_t* point_to_ptr_text(const Point &p, bool immediate) const {
-        const uint32_t offset = (p.y * (uint32_t)frame_width) + p.x;
-        if (immediate) return frame_buffer_display + offset;
-        return frame_buffer_back + offset;
-      }
 
       void display_setup_clock();
 
