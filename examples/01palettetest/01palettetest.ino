@@ -2,9 +2,7 @@
 
 #include <Adafruit_dvhstx.h>
 
-// DVHSTX16 display(DVHSTX_RESOLUTION_320x180);
-DVHSTX16 display(DVHSTX_PINOUT_METRO_RP2350, DVHSTX_RESOLUTION_320x240);
-//DVIGFX8 display(320, 240, dvi_timing_640x480p_60hz, VREG_VOLTAGE_1_20, pimoroni_demo_hdmi_cfg);
+DVHSTX8 display(DVHSTX_PINOUT_METRO_RP2350, DVHSTX_RESOLUTION_640x360);
 
 void setup() {
   Serial.begin(115200);

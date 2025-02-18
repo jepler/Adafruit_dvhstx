@@ -53,9 +53,73 @@ public:
         bool result = hstx.init(dvhstx_width(res), dvhstx_height(res), pimoroni::DVHSTX::MODE_RGB565, double_buffered, pinout);
         if (!result) return false;
         buffer = hstx.get_back_buffer<uint16_t>();
+        fillScreen(0);
         return true;
     }
     void end() { hstx.reset(); }
+
+  /**********************************************************************/
+  /*!
+    @brief    If double-buffered, wait for retrace and swap buffers. Otherwise, do nothing (returns immediately)
+    @param copy_framebuffer if true, copy the new screen to the new back buffer. Otherwise, the content is undefined.
+  */
+  /**********************************************************************/
+  void swap(bool copy_framebuffer = false);
+
+  /**********************************************************************/
+  /*!
+    @brief    Convert 24-bit RGB value to a framebuffer value
+    @param r The input red value, 0 to 255
+    @param g The input red value, 0 to 255
+    @param b The input red value, 0 to 255
+    @return  The corresponding 16-bit pixel value
+  */
+  /**********************************************************************/
+  uint16_t color565(uint8_t red, uint8_t green, uint8_t blue) {
+    return ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3);
+  }
+
+private:
+DVHSTXPinout pinout;
+DVHSTXResolution res;
+    mutable pimoroni::DVHSTX hstx;
+bool double_buffered;
+};
+
+
+class DVHSTX8 : public GFXcanvas8 {
+public:
+    /**************************************************************************/
+    /*!
+       @brief    Instatiate a DVHSTX 8-bit canvas context for graphics
+       @param    res   Display resolution
+       @param    double_buffered Whether to allocate two buffers
+    */
+    /**************************************************************************/
+    DVHSTX8(DVHSTXPinout pinout, DVHSTXResolution res, bool double_buffered=false) : GFXcanvas8(dvhstx_width(res), dvhstx_height(res), false), pinout(pinout), res{res}, double_buffered{double_buffered} {}
+    ~DVHSTX8() { end(); }
+
+    bool begin() {
+        bool result = hstx.init(dvhstx_width(res), dvhstx_height(res), pimoroni::DVHSTX::MODE_PALETTE, double_buffered, pinout);
+        if (!result) return false;
+        for(int i=0; i<255; i++ ) {
+            uint8_t r = (i >> 6) * 255 / 3;
+            uint8_t g = ((i >> 2) & 7) * 255 / 7;
+            uint8_t b = (i & 3) * 255 / 3;
+            setColor(i, r, g, b);
+        }
+        buffer = hstx.get_back_buffer<uint8_t>();
+        fillScreen(0);
+        return true;
+    }
+    void end() { hstx.reset(); }
+
+    void setColor(uint8_t idx, uint8_t red, uint8_t green, uint8_t blue) {
+        hstx.get_palette()[idx] = (red << 16) | (green << 8) | blue;
+    }
+    void setColor(uint8_t idx, uint32_t rgb) {
+        hstx.get_palette()[idx] = rgb;
+    }
 
   /**********************************************************************/
   /*!
@@ -71,65 +135,3 @@ DVHSTXResolution res;
     mutable pimoroni::DVHSTX hstx;
 bool double_buffered;
 };
-
-#if 0
-class DVHSTX8 : GFXcanvas8 {
-    /**************************************************************************/
-    /*!
-       @brief    Instatiate a DVHSTX 8-bit canvas context for graphics
-       @param    res   Display resolution
-       @param    double_buffered Whether to allocate two buffers
-    */
-    /**************************************************************************/
-    DVHSTX8(DVHSTXResolution res, bool double_buffered=false);
-    ~DVHSTX8() { end(); }
-    bool begin() {
-        return hstx.init(width, height, MODE_PALETTE, double_buffered);
-    }
-    void end() { hstx.reset(); }
-
-  void drawPixel(int16_t x, int16_t y, uint16_t color);
-  void fillScreen(uint16_t color);
-  void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
-  bool getPixel(int16_t x, int16_t y) const;
-  /**********************************************************************/
-  /*!
-    @brief    Get a pointer to the internal buffer memory (current back buffer)
-    @returns  A pointer to the allocated buffer
-  */
-  /**********************************************************************/
-  uint8_t *getBuffer(void) const { return hstx.get_back_buffer<uint8_t>(); }
-
-
-  /**********************************************************************/
-  /*!
-    @brief    If double-buffered, wait for retrace and swap buffers. Otherwise, do nothing (returns immediately)
-    @param copy_framebuffer if true, copy the new screen to the new back buffer. Otherwise, the content is undefined.
-  */
-  /**********************************************************************/
-  void swap(bool copy_framebuffer = false);
-protected:
-  bool getRawPixel(int16_t x, int16_t y) const;
-  void drawFastRawVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  void drawFastRawHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
-
-};
-
-class DVHSTXTEXT1 : GFXcanvas16 {
-    DVHSTX16();
-    bool begin() {
-        return hstx.init(1280, 720, MODE_TEXT_MONO, true);
-    }
-    using TextColor = pimoroni::DVHSTX::TextColour;
-    void end() { hstx.reset(); }
-};
-
-class DVHSTXTEXT3 : GFXcanvas16 {
-    DVHSTX16();
-    bool begin() {
-        return hstx.init(1280, 720, MODE_TEXT_RGB111, true);
-    }
-    void end() { hstx.reset(); }
-};
-#endif
