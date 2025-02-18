@@ -37,7 +37,7 @@ using pimoroni::DVHSTXPinout;
 int16_t dvhstx_width(DVHSTXResolution r);
 int16_t dvhstx_height(DVHSTXResolution r);
 
-class DVHSTX16 : public Adafruit_GFX {
+class DVHSTX16 : public GFXcanvas16 {
 public:
     /**************************************************************************/
     /*!
@@ -46,26 +46,16 @@ public:
        @param    double_buffered Whether to allocate two buffers
     */
     /**************************************************************************/
-    DVHSTX16(DVHSTXPinout pinout, DVHSTXResolution res, bool double_buffered=false) : Adafruit_GFX(dvhstx_width(res), dvhstx_height(res)), pinout(pinout), res{res}, double_buffered{double_buffered} {}
+    DVHSTX16(DVHSTXPinout pinout, DVHSTXResolution res, bool double_buffered=false) : GFXcanvas16(dvhstx_width(res), dvhstx_height(res), false), pinout(pinout), res{res}, double_buffered{double_buffered} {}
     ~DVHSTX16() { end(); }
 
     bool begin() {
-        return hstx.init(dvhstx_width(res), dvhstx_height(res), pimoroni::DVHSTX::MODE_RGB565, double_buffered, pinout);
+        bool result = hstx.init(dvhstx_width(res), dvhstx_height(res), pimoroni::DVHSTX::MODE_RGB565, double_buffered, pinout);
+        if (!result) return false;
+        buffer = hstx.get_back_buffer<uint16_t>();
+        return true;
     }
     void end() { hstx.reset(); }
-
-  void drawPixel(int16_t x, int16_t y, uint16_t color);
-  void fillScreen(uint16_t color);
-  void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
-  uint16_t getPixel(int16_t x, int16_t y) const;
-  /**********************************************************************/
-  /*!
-    @brief    Get a pointer to the internal buffer memory (current back buffer)
-    @returns  A pointer to the allocated buffer
-  */
-  /**********************************************************************/
-  uint16_t *getBuffer(void) const { return hstx.get_back_buffer<uint16_t>(); }
 
   /**********************************************************************/
   /*!
@@ -75,16 +65,11 @@ public:
   /**********************************************************************/
   void swap(bool copy_framebuffer = false);
 
-protected:
-  uint16_t getRawPixel(int16_t x, int16_t y) const;
-  void drawFastRawVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  void drawFastRawHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
-
 private:
 DVHSTXPinout pinout;
 DVHSTXResolution res;
-bool double_buffered;
     mutable pimoroni::DVHSTX hstx;
+bool double_buffered;
 };
 
 #if 0
