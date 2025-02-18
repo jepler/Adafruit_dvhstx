@@ -135,3 +135,50 @@ DVHSTXResolution res;
     mutable pimoroni::DVHSTX hstx;
 bool double_buffered;
 };
+
+using TextColor = pimoroni::DVHSTX::TextColour;
+
+class DVHSTXText3 : public GFXcanvas16 {
+public:
+    struct Cell {
+        uint16_t value;
+        Cell(uint8_t c, uint8_t attr = TextColor::TEXT_WHITE) : value(c | (attr << 8)) {}
+    };
+    /**************************************************************************/
+    /*!
+       @brief    Instatiate a DVHSTX 8-bit canvas context for graphics
+       @param    res   Display resolution
+       @param    double_buffered Whether to allocate two buffers
+    */
+    /**************************************************************************/
+    DVHSTXText3(DVHSTXPinout pinout) : GFXcanvas16(91,30,false), pinout(pinout), res{res}, attr{TextColor::TEXT_WHITE} {}
+    ~DVHSTXText3() { end(); }
+
+    bool begin() {
+        bool result = hstx.init(91, 30, pimoroni::DVHSTX::MODE_TEXT_RGB111, false, pinout);
+        if (!result) return false;
+        buffer = hstx.get_back_buffer<uint16_t>();
+        return true;
+    }
+    void end() { hstx.reset(); }
+
+#if 0 // TODO
+    void setattr(uint8_t a) { attr = a; };
+    uint8_t getattr(void) { return attr; }
+
+    void scrollup(int rows=1);
+    void scrollregion(uint8_t xsrc, uint8_t ysrc, uint8_t xdest, uint8_t ydest, uint8_t cols, uint8_t rows);
+
+    Cell getchar(uint8_t x, uint8_t y);
+    void setchar(uint8_t x, uint8_t y, Cell c);
+    void setchar(uint8_t x, uint8_t y, uint8_t ch) { setchar(x, y, {ch, attr}); }
+    void setchar(uint8_t x, uint8_t y, uint8_t ch, uint8_t a) { setchar(x, y, {ch, a}); }
+#endif
+
+private:
+DVHSTXPinout pinout;
+DVHSTXResolution res;
+    mutable pimoroni::DVHSTX hstx;
+bool double_buffered;
+uint8_t attr;
+};
