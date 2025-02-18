@@ -162,6 +162,9 @@ public:
     }
     void end() { hstx.reset(); }
 
+    void cursor_off() { hstx.cursor_off(); }
+    void set_cursor(int x, int y) { hstx.set_cursor(x, y); }
+
 #if 0 // TODO
     void setattr(uint8_t a) { attr = a; };
     uint8_t getattr(void) { return attr; }

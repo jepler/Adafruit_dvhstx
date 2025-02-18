@@ -107,6 +107,9 @@ namespace pimoroni {
       void gfx_dma_handler();
       void text_dma_handler();
 
+      void set_cursor(int x, int y) { cursor_x = x; cursor_y = y; }
+      void cursor_off(void) { cursor_y = -1; }
+
     private:
       RGB888 palette[PALETTE_SIZE];
       bool double_buffered;
@@ -135,5 +138,7 @@ namespace pimoroni {
       int line_bytes_per_pixel;
 
       uint32_t* display_palette = nullptr;
+
+      int cursor_x, cursor_y;
   };
 }

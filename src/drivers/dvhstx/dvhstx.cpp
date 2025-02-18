@@ -394,6 +394,22 @@ void __scratch_x("display") DVHSTX::text_dma_handler() {
                 *dst_ptr++ = 0;
             }
 #endif
+            if (y / 24 == cursor_y) {
+                uint8_t* dst_ptr = (uint8_t*)&line_buffers[ch_num * line_buf_total_len + count_of(vactive_text_line_header)] + 14 * cursor_x;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+                *dst_ptr++ ^= 0xff;
+            }
         }
     }
 
@@ -537,6 +553,7 @@ bool DVHSTX::init(uint16_t width, uint16_t height, Mode mode_, bool double_buffe
 {
     if (inited) reset();
 
+    cursor_y = -1;
     ch_num = 0;
     line_num = -1;
     v_scanline = 2;
