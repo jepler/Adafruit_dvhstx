@@ -8,14 +8,12 @@ DVHSTX16 display(DVHSTX_PINOUT_METRO_RP2350, DVHSTX_RESOLUTION_320x240);
 
 void setup() {
   Serial.begin(115200);
-  while(!Serial);
-Serial.println("connected. wait 1s ...");
-sleep_ms(1000);
+  // while(!Serial);
   if (!display.begin()) { // Blink LED if insufficient RAM
     pinMode(LED_BUILTIN, OUTPUT);
     for (;;) digitalWrite(LED_BUILTIN, (millis() / 500) & 1);
   }
-Serial.println("display initialized");
+  Serial.println("display initialized");
 }
 
 int i, j=1;
