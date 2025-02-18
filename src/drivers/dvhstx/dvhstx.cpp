@@ -262,13 +262,12 @@ void __scratch_x("display") DVHSTX::text_dma_handler() {
         }
         else {
             uint8_t* dst_ptr = (uint8_t*)&line_buffers[ch_num * line_buf_total_len + count_of(vactive_text_line_header)];
-            uint8_t* src_ptr = &frame_buffer_display[(y / 24) * frame_width];
-            uint8_t* colour_ptr = src_ptr + frame_width * frame_height;
+            uint8_t* src_ptr = &frame_buffer_display[(y / 24) * frame_width * 2];
 #ifdef __riscv
             for (int i = 0; i < frame_width; ++i) {
                 const uint8_t c = (*src_ptr++ - 0x20);
                 uint32_t bits = (c < 95) ? font_cache[c * 24 + char_y] : 0;
-                const uint8_t colour = *colour_ptr++;
+                const uint8_t colour = *src_ptr++;
 
                 *dst_ptr++ = colour * ((bits >> 24) & 3);
                 *dst_ptr++ = colour * ((bits >> 22) & 3);
@@ -290,10 +289,10 @@ void __scratch_x("display") DVHSTX::text_dma_handler() {
             for (; i < frame_width-1; i += 2) {
                 uint8_t c = (*src_ptr++ - 0x20);
                 uint32_t bits = (c < 95) ? font_cache[c * 24 + char_y] : 0;
-                uint8_t colour = *colour_ptr++;
+                uint8_t colour = *src_ptr++;
                 c = (*src_ptr++ - 0x20);
                 uint32_t bits2 = (c < 95) ? font_cache[c * 24 + char_y] : 0;
-                uint8_t colour2 = *colour_ptr++;
+                uint8_t colour2 = *src_ptr++;
 
                 // This ASM works around a compiler bug where the optimizer decides
                 // to unroll so hard it spills to the stack.
@@ -377,7 +376,7 @@ void __scratch_x("display") DVHSTX::text_dma_handler() {
             if (i != frame_width) {
                 const uint8_t c = (*src_ptr++ - 0x20);
                 uint32_t bits = (c < 95) ? font_cache[c * 24 + char_y] : 0;
-                const uint8_t colour = *colour_ptr++;
+                const uint8_t colour = *src_ptr++;
 
                 *dst_ptr++ = colour * ((bits >> 24) & 3);
                 *dst_ptr++ = colour * ((bits >> 22) & 3);
