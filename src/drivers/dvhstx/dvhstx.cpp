@@ -903,12 +903,6 @@ bool DVHSTX::init(uint16_t width, uint16_t height, Mode mode_, bool double_buffe
 
     dvhstx_debug("DVHSTX started\n");
 
-    for (int i = 0; i < frame_height; ++i) {
-        memset(&frame_buffer_display[i * frame_width * frame_bytes_per_pixel], i, frame_width * frame_bytes_per_pixel);
-    }
-
-    dvhstx_debug("Frame buffer filled\n");
-
     inited = true;
     return true;
 }
