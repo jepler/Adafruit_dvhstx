@@ -29,10 +29,16 @@ enum DVHSTXResolution {
 
 using pimoroni::DVHSTXPinout;
 
-#define DVHSTX_PINOUT_METRO_RP2350 ((DVHSTXPinout){14, 18, 16, 12})
-// TODO: check and enable these pinouts
-#define DVHSTX_PINOUT_FEATHER_RP2350 ((DVHSTXPinout){14, 18, 16, 12})
-#define DVHSTX_PINOUT_FRUITJAM_RP2350 ((DVHSTXPinout){14, 18, 16, 12})
+// If the board definition provides pre-defined pins for the HSTX connection,
+// use them to define a default pinout object.
+// This object can be used as the first argument of the DVHSTX constructor.
+// Otherwise you must provide the pin nubmers directly as a list of 4 numbers
+// in curly brackets such as {12, 14, 16, 18}. These give the location of the
+// positive ("P") pins in the order: Clock, Data 0, Data 1, Data 2; check your
+// board's schematic for details.
+#if defined(PIN_CKP)
+#define DVHSTX_PINOUT_DEFAULT {PIN_CKP, PIN_D0P, PIN_D1P, PIN_D2P}
+#endif
 
 int16_t dvhstx_width(DVHSTXResolution r);
 int16_t dvhstx_height(DVHSTXResolution r);

@@ -2,9 +2,11 @@
 
 #include <Adafruit_dvhstx.h>
 
-// DVHSTX16 display(DVHSTX_RESOLUTION_320x180);
-DVHSTX16 display(DVHSTX_PINOUT_METRO_RP2350, DVHSTX_RESOLUTION_320x240);
-//DVIGFX8 display(320, 240, dvi_timing_640x480p_60hz, VREG_VOLTAGE_1_20, pimoroni_demo_hdmi_cfg);
+// If your board definition has PIN_CKP and related defines, DVHSTX_PINOUT_DEFAULT is available
+DVHSTX16 display(DVHSTX_PINOUT_DEFAULT, DVHSTX_RESOLUTION_320x240);
+// If you get the message "error: 'DVHSTX_PINOUT_DEFAULTx' was not declared" then you need to give
+// the pins numbers explicitly, like the example below. The order is: {CKP, D0P, D1P, D2P}
+// DVHSTX16 display({13, 15, 17, 19}, DVHSTX_RESOLUTION_320x240);
 
 void setup() {
   Serial.begin(115200);
