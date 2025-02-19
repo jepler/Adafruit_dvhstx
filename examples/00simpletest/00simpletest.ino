@@ -5,7 +5,7 @@
 // If your board definition has PIN_CKP and related defines, DVHSTX_PINOUT_DEFAULT is available
 DVHSTX16 display(DVHSTX_PINOUT_DEFAULT, DVHSTX_RESOLUTION_320x240);
 // If you get the message "error: 'DVHSTX_PINOUT_DEFAULTx' was not declared" then you need to give
-// the pins numbers explicitly, like the example below. The order is: {CKN, D0N, D1N, D2N}
+// the pins numbers explicitly, like the example below. The order is: {CKP, D0P, D1P, D2P}
 // DVHSTX16 display({12, 14, 16, 18}, DVHSTX_RESOLUTION_320x240);
 
 void setup() {

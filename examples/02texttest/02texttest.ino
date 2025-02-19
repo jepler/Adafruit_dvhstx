@@ -5,13 +5,13 @@
 // If your board definition has PIN_CKP and related defines, DVHSTX_PINOUT_DEFAULT is available
 DVHSTXText3 display(DVHSTX_PINOUT_DEFAULT);
 // If you get the message "error: 'DVHSTX_PINOUT_DEFAULTx' was not declared" then you need to give
-// the pins numbers explicitly, like the example below. The order is: {CKN, D0N, D1N, D2N}
+// the pins numbers explicitly, like the example below. The order is: {CKP, D0P, D1P, D2P}
 // DVHSTXText3 display({12, 14, 16, 18});
 
 void setup() {
   Serial.begin(115200);
   while(!Serial);
-Serial.printf("Your lucky number is %d\n", random(91));
+// Serial.printf("Your lucky number is %d\n", random(91));
   if (!display.begin()) { // Blink LED if insufficient RAM
     pinMode(LED_BUILTIN, OUTPUT);
     for (;;) digitalWrite(LED_BUILTIN, (millis() / 500) & 1);
