@@ -42,7 +42,8 @@ void dvhstx_debug(const char *fmt, ...);
 }
 #elif defined(ARDUINO)
 #include <Arduino.h>
-#define dvhstx_debug Serial.printf
+// #define dvhstx_debug Serial.printf
+#define dvhstx_debug(...) ((void)0)
 #else
 #include <cstdio>
 #define dvhstx_debug printf
