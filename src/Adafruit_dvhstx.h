@@ -34,10 +34,10 @@ using pimoroni::DVHSTXPinout;
 // This object can be used as the first argument of the DVHSTX constructor.
 // Otherwise you must provide the pin nubmers directly as a list of 4 numbers
 // in curly brackets such as {12, 14, 16, 18}. These give the location of the
-// positive ("P") pins in the order: Clock, Data 0, Data 1, Data 2; check your
+// positive ("N") pins in the order: Clock, Data 0, Data 1, Data 2; check your
 // board's schematic for details.
-#if defined(PIN_CKP)
-#define DVHSTX_PINOUT_DEFAULT {PIN_CKP, PIN_D0P, PIN_D1P, PIN_D2P}
+#if defined(PIN_CKN)
+#define DVHSTX_PINOUT_DEFAULT {PIN_CKN, PIN_D0N, PIN_D1N, PIN_D2N}
 #endif
 
 int16_t dvhstx_width(DVHSTXResolution r);
