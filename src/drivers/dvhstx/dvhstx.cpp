@@ -732,7 +732,7 @@ bool DVHSTX::init(uint16_t width, uint16_t height, Mode mode_, bool double_buffe
 
     if (mode == MODE_TEXT_RGB111) {
         // Need to pre-render the font to RAM to be fast enough.
-        font_cache = (uint32_t*)malloc(4 * FONT->line_height * 95);
+        font_cache = (uint32_t*)malloc(4 * FONT->line_height * 96);
         uint32_t* font_cache_ptr = font_cache;
         for (int c = 0x20; c < 128; ++c) {
             for (int y = 0; y < FONT->line_height; ++y) {
