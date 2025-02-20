@@ -192,7 +192,8 @@ public:
 
   void clear();
 
-  void set_color(TextColor a) { attr = a; }
+  void set_color(uint8_t a) { attr = a; }
+  void set_color(TextColor fg, TextColor bg, TextColor inten = TextColor::ATTR_NORMAL_INTEN) { attr = fg | bg | inten; }
 
   void hide_cursor() {
     cursor_visible = false;
@@ -226,7 +227,7 @@ private:
   mutable pimoroni::DVHSTX hstx;
   bool double_buffered;
   bool cursor_visible = false;
-  TextColor attr;
+  uint8_t attr;
   uint8_t cursor_x = 0, cursor_y = 0;
 
   void sync_cursor_with_hstx() {
