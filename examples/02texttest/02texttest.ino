@@ -47,7 +47,7 @@ void setup() {
   display.println("\n\nAttribute test\n");
   display.print("   ");
   for (int d : background_colors) {
-   display.printf(" %d ri vli", (int)d >> 3 );
+   display.printf(" %d ri vli ", (int)d >> 3 );
     }
   display.write('\n');
   for (TextColor c : colors) {
