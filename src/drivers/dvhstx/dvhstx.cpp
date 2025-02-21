@@ -1,6 +1,10 @@
 #include <string.h>
 #include <pico/stdlib.h>
 
+#if F_CPU != 150000000
+#error "Adafruit_DVHSTX controls overclocking (setting CPU frequency to 264MHz). However, the Tools > CPU Speed selector *MUST* be set to 150MHz"
+#endif
+
 extern "C" {
 #include <pico/lock_core.h>
 }
