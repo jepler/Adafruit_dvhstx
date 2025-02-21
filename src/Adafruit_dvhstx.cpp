@@ -79,7 +79,7 @@ void DVHSTX8::swap(bool copy_framebuffer) {
 }
 
 void DVHSTXText3::clear() {
-  memset(getBuffer(), 0, WIDTH * HEIGHT * sizeof(uint16_t));
+  std::fill(getBuffer(), getBuffer() + WIDTH*HEIGHT, attr << 8);
 }
 
 // Character framebuffer is actually a small GFXcanvas16, so...
@@ -88,12 +88,12 @@ size_t DVHSTXText3::write(uint8_t c) {
     cursor_x = 0;
   } else if ((c == '\n') ||
              (c >= 32 &&
-              cursor_x > WIDTH)) { // Newline OR right edge and printing
+              cursor_x >= WIDTH)) { // Newline OR right edge and printing
     cursor_x = 0;
     if (cursor_y >= (HEIGHT - 1)) { // Vert scroll?
       memmove(getBuffer(), getBuffer() + WIDTH,
               WIDTH * (HEIGHT - 1) * sizeof(uint16_t));
-      drawFastHLine(0, HEIGHT - 1, WIDTH, ' '); // Clear bottom line
+      drawFastHLine(0, HEIGHT - 1, WIDTH, ' ' | (attr << 8)); // Clear bottom line
       cursor_y = HEIGHT - 1;
     } else {
       cursor_y++;

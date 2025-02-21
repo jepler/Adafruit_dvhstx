@@ -42,14 +42,27 @@ namespace pimoroni {
     };
 
     enum TextColour {
-      TEXT_BLACK   = 0,
-      TEXT_RED     = 0b1000000,
-      TEXT_GREEN   = 0b0001000,
-      TEXT_BLUE    = 0b0000001,
-      TEXT_YELLOW  = 0b1001000,
-      TEXT_MAGENTA = 0b1000001,
-      TEXT_CYAN    = 0b0001001,
-      TEXT_WHITE   = 0b1001001,
+      TEXT_BLACK = 0,
+      TEXT_RED,
+      TEXT_GREEN,
+      TEXT_BLUE,
+      TEXT_YELLOW,
+      TEXT_MAGENTA,
+      TEXT_CYAN,
+      TEXT_WHITE,
+
+      BG_BLACK = 0,
+      BG_RED = TEXT_RED << 3,
+      BG_GREEN = TEXT_GREEN << 3,
+      BG_BLUE = TEXT_BLUE << 3,
+      BG_YELLOW = TEXT_YELLOW << 3,
+      BG_MAGENTA = TEXT_MAGENTA << 3,
+      BG_CYAN = TEXT_CYAN << 3,
+      BG_WHITE = TEXT_WHITE << 3,
+
+      ATTR_NORMAL_INTEN = 0,
+      ATTR_LOW_INTEN = 1 << 6,
+      ATTR_V_LOW_INTEN = 1 << 7 | ATTR_LOW_INTEN,
     };    
 
     //--------------------------------------------------

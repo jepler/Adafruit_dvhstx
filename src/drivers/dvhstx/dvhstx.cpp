@@ -1,6 +1,10 @@
 #include <string.h>
 #include <pico/stdlib.h>
 
+#if F_CPU != 150000000
+#error "Adafruit_DVHSTX controls overclocking (setting CPU frequency to 264MHz). However, the Tools > CPU Speed selector *MUST* be set to 150MHz"
+#endif
+
 extern "C" {
 #include <pico/lock_core.h>
 }
@@ -232,6 +236,25 @@ void __scratch_x("display") dma_irq_handler_text() {
     display->text_dma_handler();
 }
 
+uint8_t color_lut[8] = {
+#define CLUT_ENTRY(i) (i)
+#define CLUT_R CLUT_ENTRY(1 << 6)
+#define CLUT_G CLUT_ENTRY(1 << 3)
+#define CLUT_B CLUT_ENTRY(1 << 0)
+    0,
+    CLUT_R,
+    CLUT_G,
+    CLUT_R | CLUT_G,
+    CLUT_B,
+    CLUT_R | CLUT_B,
+    CLUT_G | CLUT_B,
+    CLUT_R | CLUT_G | CLUT_B,
+#undef CLUT_R
+#undef CLUT_G
+#undef CLUT_B
+#undef CLUT_ENTRY
+};
+
 void __scratch_x("display") DVHSTX::text_dma_handler() {
     // ch_num indicates the channel that just finished, which is the one
     // we're about to reload.
@@ -262,139 +285,51 @@ void __scratch_x("display") DVHSTX::text_dma_handler() {
             }
         }
         else {
-            uint8_t* dst_ptr = (uint8_t*)&line_buffers[ch_num * line_buf_total_len + count_of(vactive_text_line_header)];
             uint8_t* src_ptr = &frame_buffer_display[(y / 24) * frame_width * 2];
-#ifdef __riscv
-            for (int i = 0; i < frame_width; ++i) {
-                const uint8_t c = (*src_ptr++ - 0x20);
-                uint32_t bits = (c < 95) ? font_cache[c * 24 + char_y] : 0;
-                const uint8_t colour = *src_ptr++;
-
-                *dst_ptr++ = colour * ((bits >> 24) & 3);
-                *dst_ptr++ = colour * ((bits >> 22) & 3);
-                *dst_ptr++ = colour * ((bits >> 20) & 3);
-                *dst_ptr++ = colour * ((bits >> 18) & 3);
-                *dst_ptr++ = colour * ((bits >> 16) & 3);
-                *dst_ptr++ = colour * ((bits >> 14) & 3);
-                *dst_ptr++ = colour * ((bits >> 12) & 3);
-                *dst_ptr++ = colour * ((bits >> 10) & 3);
-                *dst_ptr++ = colour * ((bits >> 8) & 3);
-                *dst_ptr++ = colour * ((bits >> 6) & 3);
-                *dst_ptr++ = colour * ((bits >> 4) & 3);
-                *dst_ptr++ = colour * ((bits >> 2) & 3);
-                *dst_ptr++ = colour * (bits & 3);
-                *dst_ptr++ = 0;
-            }
-#else
-            int i = 0;
-            for (; i < frame_width-1; i += 2) {
+            uint32_t* dst_ptr = &line_buffers[ch_num * line_buf_total_len + count_of(vactive_text_line_header)];
+            for (int i = 0; i < frame_width; i += 2) {
+                uint32_t tmp_h, tmp_l;
+                
                 uint8_t c = (*src_ptr++ - 0x20);
                 uint32_t bits = (c < 95) ? font_cache[c * 24 + char_y] : 0;
-                uint8_t colour = *src_ptr++;
+                uint8_t attr = *src_ptr++;
+                uint32_t bg = color_lut[(attr >> 3) & 7];
+                uint32_t colour = color_lut[attr & 7] ^ bg;
+                uint32_t bg_xor = bg * 0x3030303;
+                if (attr & ATTR_LOW_INTEN) bits = bits & 0xaaaaaaaa;
+                if ((attr & ATTR_V_LOW_INTEN) == ATTR_V_LOW_INTEN) bits >>= 1;
+
+                *dst_ptr++ = colour * ((bits >> 6) & 0x3030303) ^ bg_xor;
+                *dst_ptr++ = colour * ((bits >> 4) & 0x3030303) ^ bg_xor;
+                *dst_ptr++ = colour * ((bits >> 2) & 0x3030303) ^ bg_xor;
+                tmp_l = colour * ((bits >> 0) & 0x3030303) ^ bg_xor;
+
+                if (i == frame_width - 1) {
+                    *dst_ptr++ = tmp_l;
+                    break;
+                }
+           
                 c = (*src_ptr++ - 0x20);
-                uint32_t bits2 = (c < 95) ? font_cache[c * 24 + char_y] : 0;
-                uint8_t colour2 = *src_ptr++;
+                bits = (c < 95) ? font_cache[c * 24 + char_y] : 0;
+                attr = *src_ptr++;
+                if (attr & ATTR_LOW_INTEN) bits = bits & 0xaaaaaaaa;
+                if ((attr & ATTR_V_LOW_INTEN) == ATTR_V_LOW_INTEN) bits >>= 1;
+                bg = color_lut[(attr >> 3) & 7] ;
+                colour = color_lut[attr & 7] ^ bg;
+                bg_xor = bg * 0x3030303;
 
-                // This ASM works around a compiler bug where the optimizer decides
-                // to unroll so hard it spills to the stack.
-                uint32_t tmp, tmp2;
-                asm volatile (
-                    "ubfx %[tmp], %[cbits], #24, #2\n\t"
-                    "ubfx %[tmp2], %[cbits], #22, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #8, #8\n\t"
-                    "ubfx %[tmp2], %[cbits], #20, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #16, #8\n\t"
-                    "ubfx %[tmp2], %[cbits], #18, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #24, #8\n\t"
-                    "muls %[tmp], %[colour], %[tmp]\n\t"
-                    "str %[tmp], [%[dst_ptr]]\n\t"
-
-                    "ubfx %[tmp], %[cbits], #16, #2\n\t"
-                    "ubfx %[tmp2], %[cbits], #14, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #8, #8\n\t"
-                    "ubfx %[tmp2], %[cbits], #12, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #16, #8\n\t"
-                    "ubfx %[tmp2], %[cbits], #10, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #24, #8\n\t"
-                    "muls %[tmp], %[colour], %[tmp]\n\t"
-                    "str %[tmp], [%[dst_ptr], #4]\n\t"
-
-                    "ubfx %[tmp], %[cbits], #8, #2\n\t"
-                    "ubfx %[tmp2], %[cbits], #6, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #8, #8\n\t"
-                    "ubfx %[tmp2], %[cbits], #4, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #16, #8\n\t"
-                    "ubfx %[tmp2], %[cbits], #2, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #24, #8\n\t"
-                    "muls %[tmp], %[colour], %[tmp]\n\t"
-                    "str %[tmp], [%[dst_ptr], #8]\n\t"
-
-                    "ubfx %[tmp], %[cbits2], #24, #2\n\t"
-                    "ubfx %[tmp2], %[cbits2], #22, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #8, #8\n\t"
-                    "muls %[tmp], %[colour2], %[tmp]\n\t"
-                    "and %[tmp2], %[cbits], #3\n\t"
-                    "muls %[tmp2], %[colour], %[tmp2]\n\t"
-                    "bfi %[tmp2], %[tmp], #16, #16\n\t"
-                    "str %[tmp2], [%[dst_ptr], #12]\n\t"
-
-                    "ubfx %[tmp], %[cbits2], #20, #2\n\t"
-                    "ubfx %[tmp2], %[cbits2], #18, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #8, #8\n\t"
-                    "ubfx %[tmp2], %[cbits2], #16, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #16, #8\n\t"
-                    "ubfx %[tmp2], %[cbits2], #14, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #24, #8\n\t"
-                    "muls %[tmp], %[colour2], %[tmp]\n\t"
-                    "str %[tmp], [%[dst_ptr], #16]\n\t"
-
-                    "ubfx %[tmp], %[cbits2], #12, #2\n\t"
-                    "ubfx %[tmp2], %[cbits2], #10, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #8, #8\n\t"
-                    "ubfx %[tmp2], %[cbits2], #8, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #16, #8\n\t"
-                    "ubfx %[tmp2], %[cbits2], #6, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #24, #8\n\t"
-                    "muls %[tmp], %[colour2], %[tmp]\n\t"
-                    "str %[tmp], [%[dst_ptr], #20]\n\t"
-
-                    "ubfx %[tmp], %[cbits2], #4, #2\n\t"
-                    "ubfx %[tmp2], %[cbits2], #2, #2\n\t"
-                    "bfi %[tmp], %[tmp2], #8, #8\n\t"
-                    "bfi %[tmp], %[cbits2], #16, #2\n\t"
-                    "muls %[tmp], %[colour2], %[tmp]\n\t"
-                    "str %[tmp], [%[dst_ptr], #24]\n\t"
-                    : [tmp] "=&l" (tmp),
-                      [tmp2] "=&l" (tmp2)
-                    : [cbits] "r" (bits),
-                      [colour] "l" (colour),
-                      [cbits2] "r" (bits2),
-                      [colour2] "l" (colour2),
-                      [dst_ptr] "r" (dst_ptr)
-                    : "cc", "memory" );
-                dst_ptr += 14 * 2;                
+                tmp_h = colour * ((bits >> 6) & 0x3030303) ^ bg_xor;
+                *dst_ptr++ = tmp_l & 0xffff | (tmp_h << 16);
+                tmp_l = tmp_h >> 16;
+                tmp_h = colour * ((bits >> 4) & 0x3030303) ^ bg_xor;
+                *dst_ptr++ = tmp_l & 0xffff | (tmp_h << 16);
+                tmp_l = tmp_h >> 16;
+                tmp_h = colour * ((bits >> 2) & 0x3030303) ^ bg_xor;
+                *dst_ptr++ = tmp_l & 0xffff | (tmp_h << 16);
+                tmp_l = tmp_h >> 16;
+                tmp_h = colour * ((bits >> 0) & 0x3030303) ^ bg_xor;
+                *dst_ptr++ = tmp_l & 0xffff | (tmp_h << 16);
             }
-            if (i != frame_width) {
-                const uint8_t c = (*src_ptr++ - 0x20);
-                uint32_t bits = (c < 95) ? font_cache[c * 24 + char_y] : 0;
-                const uint8_t colour = *src_ptr++;
-
-                *dst_ptr++ = colour * ((bits >> 24) & 3);
-                *dst_ptr++ = colour * ((bits >> 22) & 3);
-                *dst_ptr++ = colour * ((bits >> 20) & 3);
-                *dst_ptr++ = colour * ((bits >> 18) & 3);
-                *dst_ptr++ = colour * ((bits >> 16) & 3);
-                *dst_ptr++ = colour * ((bits >> 14) & 3);
-                *dst_ptr++ = colour * ((bits >> 12) & 3);
-                *dst_ptr++ = colour * ((bits >> 10) & 3);
-                *dst_ptr++ = colour * ((bits >> 8) & 3);
-                *dst_ptr++ = colour * ((bits >> 6) & 3);
-                *dst_ptr++ = colour * ((bits >> 4) & 3);
-                *dst_ptr++ = colour * ((bits >> 2) & 3);
-                *dst_ptr++ = colour * (bits & 3);
-                *dst_ptr++ = 0;
-            }
-#endif
             if (y / 24 == cursor_y) {
                 uint8_t* dst_ptr = (uint8_t*)&line_buffers[ch_num * line_buf_total_len + count_of(vactive_text_line_header)] + 14 * cursor_x;
                 *dst_ptr++ ^= 0xff;
@@ -732,12 +667,33 @@ bool DVHSTX::init(uint16_t width, uint16_t height, Mode mode_, bool double_buffe
     }
 
     if (mode == MODE_TEXT_RGB111) {
+        auto scramble = [](uint32_t b) {
+            auto take = [b](int shift1, int shift2) {
+                return ((b >> shift1) & 3) << shift2;
+            };
+            return
+                take( 0,  0) |
+                take( 2, 26) |
+                take( 4, 18) |
+                take( 6, 10) |
+                take( 8,  2) |
+                take(10, 28) |
+                take(12, 20) |
+                take(14, 12) |
+                take(16,  4) |
+                take(18, 30) |
+                take(20, 22) |
+                take(22, 14) |
+                take(24,  6) |
+                take(26, 28);
+
+        };
         // Need to pre-render the font to RAM to be fast enough.
         font_cache = (uint32_t*)malloc(4 * FONT->line_height * 96);
         uint32_t* font_cache_ptr = font_cache;
         for (int c = 0x20; c < 128; ++c) {
             for (int y = 0; y < FONT->line_height; ++y) {
-                *font_cache_ptr++ = render_char_line(c, y);
+                *font_cache_ptr++ = scramble(render_char_line(c, y));
             }
         }
     }
@@ -915,6 +871,7 @@ bool DVHSTX::init(uint16_t width, uint16_t height, Mode mode_, bool double_buffe
     dma_hw->inte2 = (1 << NUM_CHANS) - 1;
     if (is_text_mode) irq_set_exclusive_handler(DMA_IRQ_2, dma_irq_handler_text);
     else irq_set_exclusive_handler(DMA_IRQ_2, dma_irq_handler);
+    irq_set_priority(DMA_IRQ_2, PICO_HIGHEST_IRQ_PRIORITY);
     irq_set_enabled(DMA_IRQ_2, true);
 
     dma_channel_start(0);
