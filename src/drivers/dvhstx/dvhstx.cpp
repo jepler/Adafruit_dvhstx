@@ -293,6 +293,7 @@ void __scratch_x("display") DVHSTX::text_dma_handler() {
                 uint32_t colour = color_lut[attr & 7] ^ bg;
                 uint32_t bg_xor = bg * 0x3030303;
                 if (attr & ATTR_LOW_INTEN) bits = bits & 0xaaaaaaaa;
+                if ((attr & ATTR_V_LOW_INTEN) == ATTR_V_LOW_INTEN) bits >>= 1;
 
                 *dst_ptr++ = colour * ((bits >> 6) & 0x3030303) ^ bg_xor;
                 *dst_ptr++ = colour * ((bits >> 4) & 0x3030303) ^ bg_xor;
@@ -308,6 +309,7 @@ void __scratch_x("display") DVHSTX::text_dma_handler() {
                 bits = (c < 95) ? font_cache[c * 24 + char_y] : 0;
                 attr = *src_ptr++;
                 if (attr & ATTR_LOW_INTEN) bits = bits & 0xaaaaaaaa;
+                if ((attr & ATTR_V_LOW_INTEN) == ATTR_V_LOW_INTEN) bits >>= 1;
                 bg = color_lut[(attr >> 3) & 7] ;
                 colour = color_lut[attr & 7] ^ bg;
                 bg_xor = bg * 0x3030303;

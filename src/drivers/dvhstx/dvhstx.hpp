@@ -62,6 +62,7 @@ namespace pimoroni {
 
       ATTR_NORMAL_INTEN = 0,
       ATTR_LOW_INTEN = 1 << 6,
+      ATTR_V_LOW_INTEN = 1 << 7 | ATTR_LOW_INTEN,
     };    
 
     //--------------------------------------------------

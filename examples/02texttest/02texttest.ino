@@ -26,7 +26,7 @@ const static TextColor background_colors[] = {
 };
 
 const static TextColor intensity[] = {
-    TextColor::ATTR_NORMAL_INTEN, TextColor::ATTR_LOW_INTEN
+    TextColor::ATTR_NORMAL_INTEN, TextColor::ATTR_LOW_INTEN, TextColor::ATTR_V_LOW_INTEN
 };
 
 void setup() {
@@ -47,7 +47,7 @@ void setup() {
   display.println("\n\nAttribute test\n");
   display.print("   ");
   for (int d : background_colors) {
-   display.printf(" %d   ri ", (int)d >> 3 );
+   display.printf(" %d ri vli", (int)d >> 3 );
     }
   display.write('\n');
   for (TextColor c : colors) {
@@ -57,9 +57,11 @@ void setup() {
       display.write('*');
       display.write('*');
       display.write('*');
-      display.set_color(TextColor::TEXT_BLACK, TextColor::BG_WHITE);
-      display.write(' ');
       display.set_color(c, d, TextColor::ATTR_LOW_INTEN);
+      display.write('*');
+      display.write('*');
+      display.write('*');
+      display.set_color(c, d, TextColor::ATTR_V_LOW_INTEN);
       display.write('*');
       display.write('*');
       display.write('*');
